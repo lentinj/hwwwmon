@@ -4,6 +4,8 @@ import http.server
 import json
 import os.path
 import re
+import socket
+from string import Template
 import time
 
 mons = dict()
@@ -96,12 +98,13 @@ def main():
     httpd = http.server.HTTPServer(('', 8000), HwmRequestHandler)
     httpd.serve_forever()
 
-PAGE_HTML = b"""
+PAGE_HTML = Template("""
 <!DOCTYPE html>
 <html>
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta charset="UTF-8" />
+    <title>hwwwmon: ${hostname}</title>
     <style>
 body {
     font-family: sans;
@@ -116,13 +119,13 @@ section {
             referrerpolicy="no-referrer"></script>
   </head>
   <body>
-    <h1>hwwwmon</h1>
+    <h1>hwwwmon: ${hostname}</h1>
     <div id="chart-container"></div>
     <script>
 const mon_charts={};
 const maxPoints = 200;
 
-function updateCharts(mon_data) {
+function updateCharts(mon_data, updateCharts) {
     // https://www.chartjs.org/docs/latest/charts/line.html
     return Promise.resolve().then(() => {
         // First loop: Make sure we have all elements created
@@ -190,7 +193,7 @@ evtSource.onmessage = (event) => {
     </script>
   </body>
 </html>
-"""
+""").safe_substitute(hostname = socket.gethostname()).encode("utf8")
 
 if __name__ == '__main__':
     main()
