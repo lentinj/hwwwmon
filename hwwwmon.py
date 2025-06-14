@@ -7,6 +7,7 @@ import re
 import socket
 from string import Template
 import time
+import urllib.parse
 
 mons = dict()
 
@@ -50,12 +51,15 @@ class HwmRequestHandler(http.server.SimpleHTTPRequestHandler):
     # https://docs.python.org/3/library/http.server.html#http.server.BaseHTTPRequestHandler
 
     def do_GET(self):
-        if self.path == "/":
+        u = urllib.parse.urlparse(self.path)
+        qs = urllib.parse.parse_qs(u.query)
+
+        if u.path == "/":
             return self.do_index()
-        if self.path == "/mon.json":
+        if u.path == "/mon.json":
             return self.do_mon()
-        if self.path == "/mon.sse":
-            return self.do_mon_sse()
+        if u.path == "/mon.sse":
+            return self.do_mon_sse(qs)
 
         self.send_response(404)
         self.send_header("Content-type", "text/plain")
@@ -74,9 +78,10 @@ class HwmRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(json.dumps(collect_mon()).encode("utf8"))
 
-    def do_mon_sse(self):
+    def do_mon_sse(self, qs):
         # https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events
         # curl -N http:/localhost:8000/mon.sse
+        update_rate = int("".join(qs.get("update-rate", ["300"]))) / 1000
 
         self.send_response(200)
         self.send_header("X-Accel-Buffering", "no");
@@ -91,7 +96,7 @@ class HwmRequestHandler(http.server.SimpleHTTPRequestHandler):
                 self.wfile.flush()
             except BrokenPipeError:
                 return
-            time.sleep(0.3)
+            time.sleep(update_rate)
 
 def main():
     init_mon()
@@ -124,6 +129,7 @@ section {
       <button onclick="monPause()">⏸️</button>
       <button onclick="monStart()">▶️</button>
       <button onclick="monStop()">⏹️</button>
+      <label>Update every <input type="number" id="update-rate" value="300" onchange="monStop();monStart()" />ms</label>
     </form>
     <div id="chart-container"></div>
     <script>
@@ -194,7 +200,9 @@ function updateCharts(mon_data, updateCharts) {
 function monStart() {
     window.hwUpdateCharts = true;
     if (window.evtSource) return;
-    window.evtSource = new EventSource("/mon.sse");
+
+    const updateRate = document.getElementById("update-rate").value;
+    window.evtSource = new EventSource(`/mon.sse?update-rate=${updateRate}`);
     window.evtSource.onmessage = (event) => {
         return updateCharts(JSON.parse(event.data), window.hwUpdateCharts);
     };
