@@ -4,6 +4,7 @@ import http.server
 import json
 import os.path
 import re
+import time
 
 mons = dict()
 
@@ -51,6 +52,8 @@ class HwmRequestHandler(http.server.SimpleHTTPRequestHandler):
             return self.do_index()
         if self.path == "/mon.json":
             return self.do_mon()
+        if self.path == "/mon.sse":
+            return self.do_mon_sse()
 
         self.send_response(404)
         self.send_header("Content-type", "text/plain")
@@ -68,6 +71,22 @@ class HwmRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header("Content-type", "application/json")
         self.end_headers()
         self.wfile.write(json.dumps(collect_mon()).encode("utf8"))
+
+    def do_mon_sse(self):
+        # https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events
+        # curl -N http:/localhost:8000/mon.sse
+
+        self.send_response(200)
+        self.send_header("X-Accel-Buffering", "no");
+        self.send_header("Content-Type", "text/event-stream");
+        self.send_header("Cache-Control", "no-cache");
+        self.end_headers()
+        while True:
+            self.wfile.write(b"data: ")
+            self.wfile.write(json.dumps(collect_mon()).encode("utf8"))
+            self.wfile.write(b"\n\n")
+            self.wfile.flush()
+            time.sleep(0.3)
 
 def main():
     init_mon()
@@ -98,14 +117,11 @@ section {
     <div id="chart-container"></div>
     <script>
 const mon_charts={};
-const maxPoints = 100;
+const maxPoints = 200;
 
-function updateCharts() {
+function updateCharts(mon_data) {
     // https://www.chartjs.org/docs/latest/charts/line.html
-    return window.fetch("/mon.json").then((response) => {
-        if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-        return response.json();
-    }).then((mon_data) => {
+    return Promise.resolve().then(() => {
         // First loop: Make sure we have all elements created
         Object.keys(mon_data).forEach((mon_type) => {
             if (mon_type === "_errors") {
@@ -118,8 +134,7 @@ function updateCharts() {
                 </section>`);
             }
         });
-        return mon_data;
-    }).then((mon_data) => {
+    }).then(() => {
         const timeStr = (new Date()).toLocaleTimeString();
 
         // Now DOM is updated, create charts
@@ -162,11 +177,13 @@ function updateCharts() {
             });
             chart.update();
         });
-    }).then(() => {
-        window.setTimeout(updateCharts, 1000);
     });
 }
-updateCharts();
+
+const evtSource = new EventSource("/mon.sse");
+evtSource.onmessage = (event) => {
+    return updateCharts(JSON.parse(event.data));
+};
     </script>
   </body>
 </html>
