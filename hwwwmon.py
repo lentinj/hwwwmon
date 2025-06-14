@@ -82,10 +82,13 @@ class HwmRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header("Cache-Control", "no-cache");
         self.end_headers()
         while True:
-            self.wfile.write(b"data: ")
-            self.wfile.write(json.dumps(collect_mon()).encode("utf8"))
-            self.wfile.write(b"\n\n")
-            self.wfile.flush()
+            try:
+                self.wfile.write(b"data: ")
+                self.wfile.write(json.dumps(collect_mon()).encode("utf8"))
+                self.wfile.write(b"\n\n")
+                self.wfile.flush()
+            except BrokenPipeError:
+                return
             time.sleep(0.3)
 
 def main():
