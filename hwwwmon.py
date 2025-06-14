@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+import argparse
 import glob
 import http.server
 import json
@@ -99,8 +100,24 @@ class HwmRequestHandler(http.server.SimpleHTTPRequestHandler):
             time.sleep(update_rate)
 
 def main():
+    parser = argparse.ArgumentParser(description='Start hwwwmon')
+    parser.add_argument(
+        '--listen', '-l',
+        type=str,
+        default='0.0.0.0',
+        help='IP address to listen on (default: 0.0.0.0)'
+    )
+    parser.add_argument(
+        '--port', '-p',
+        type=int,
+        default=8484,
+        help='Port number to listen on (default: 8484)'
+    )
+    args = parser.parse_args()
+
     init_mon()
-    httpd = http.server.HTTPServer(('', 8000), HwmRequestHandler)
+    print(f"Listening on {args.listen}:{args.port}")
+    httpd = http.server.HTTPServer((args.listen, args.port), HwmRequestHandler)
     httpd.serve_forever()
 
 PAGE_HTML = Template("""
