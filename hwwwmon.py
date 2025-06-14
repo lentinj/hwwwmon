@@ -132,7 +132,12 @@ body {
     font-family: sans;
 }
 section {
-    margin: 1rem 0;
+    margin: 1rem auto;
+    /* https://www.chartjs.org/docs/latest/configuration/responsive.html#important-note */
+    position: relative;
+    min-height: 400px;
+    max-height: 90vh;
+    width: 90vw;
 }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"
@@ -180,6 +185,8 @@ function updateCharts(mon_data, updateCharts, maxPoints) {
                     data: { datasets: [] },
                     options: {
                         animation: false,
+                        responsive: true,
+                        maintainAspectRatio: false,
                         elements: {
                             line: { // https://www.chartjs.org/docs/latest/configuration/elements.html#line-configuration 
                                 borderWidth: 2,
