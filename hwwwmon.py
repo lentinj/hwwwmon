@@ -120,6 +120,11 @@ section {
   </head>
   <body>
     <h1>hwwwmon: ${hostname}</h1>
+    <form onsubmit="return false;">
+      <button onclick="monPause()">⏸️</button>
+      <button onclick="monStart()">▶️</button>
+      <button onclick="monStop()">⏹️</button>
+    </form>
     <div id="chart-container"></div>
     <script>
 const mon_charts={};
@@ -181,15 +186,31 @@ function updateCharts(mon_data, updateCharts) {
                 chart.data.datasets[i].data.push(mon_data[mon_type][mon_name]);
                 if (chart.data.datasets[i].data.length > maxPoints) chart.data.datasets[i].data.shift();
             });
-            chart.update();
+            if (updateCharts) chart.update();
         });
     });
 }
 
-const evtSource = new EventSource("/mon.sse");
-evtSource.onmessage = (event) => {
-    return updateCharts(JSON.parse(event.data));
-};
+function monStart() {
+    window.hwUpdateCharts = true;
+    if (window.evtSource) return;
+    window.evtSource = new EventSource("/mon.sse");
+    window.evtSource.onmessage = (event) => {
+        return updateCharts(JSON.parse(event.data), window.hwUpdateCharts);
+    };
+}
+
+function monStop() {
+    if (!window.evtSource) return;
+    window.evtSource.close();
+    window.evtSource = undefined;
+}
+
+function monPause() {
+    window.hwUpdateCharts = !window.hwUpdateCharts;
+}
+
+window.addEventListener("DOMContentLoaded", monStart);
     </script>
   </body>
 </html>
