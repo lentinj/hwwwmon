@@ -130,13 +130,13 @@ section {
       <button onclick="monStart()">▶️</button>
       <button onclick="monStop()">⏹️</button>
       <label>Update every <input type="number" id="update-rate" value="300" onchange="monStop();monStart()" />ms</label>
+      <label>Show <input type="number" id="max-points" value="200" min="1" />data points</label>
     </form>
     <div id="chart-container"></div>
     <script>
 const mon_charts={};
-const maxPoints = 200;
 
-function updateCharts(mon_data, updateCharts) {
+function updateCharts(mon_data, updateCharts, maxPoints) {
     // https://www.chartjs.org/docs/latest/charts/line.html
     return Promise.resolve().then(() => {
         // First loop: Make sure we have all elements created
@@ -182,7 +182,7 @@ function updateCharts(mon_data, updateCharts) {
             }
             const chart = mon_charts[mon_type];
             chart.data.labels.push(timeStr);
-            if (chart.data.labels.length > maxPoints) chart.data.labels.shift();
+            while (chart.data.labels.length > maxPoints) chart.data.labels.shift();
             Object.keys(mon_data[mon_type]).forEach((mon_name) => {
                 let i = 0
                 for (i = 0; i < chart.data.datasets.length; i++) {
@@ -190,7 +190,7 @@ function updateCharts(mon_data, updateCharts) {
                 }
                 if (i >= chart.data.datasets.length) chart.data.datasets.push({ label: mon_name, data: [] });
                 chart.data.datasets[i].data.push(mon_data[mon_type][mon_name]);
-                if (chart.data.datasets[i].data.length > maxPoints) chart.data.datasets[i].data.shift();
+                while (chart.data.datasets[i].data.length > maxPoints) chart.data.datasets[i].data.shift();
             });
             if (updateCharts) chart.update();
         });
@@ -204,7 +204,8 @@ function monStart() {
     const updateRate = document.getElementById("update-rate").value;
     window.evtSource = new EventSource(`/mon.sse?update-rate=${updateRate}`);
     window.evtSource.onmessage = (event) => {
-        return updateCharts(JSON.parse(event.data), window.hwUpdateCharts);
+        const maxPoints = parseInt(document.getElementById("max-points").value, 10);
+        return updateCharts(JSON.parse(event.data), window.hwUpdateCharts, maxPoints);
     };
 }
 
