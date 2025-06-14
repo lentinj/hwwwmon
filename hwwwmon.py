@@ -211,6 +211,7 @@ function monPause() {
 }
 
 window.addEventListener("DOMContentLoaded", monStart);
+window.addEventListener("beforeunload", monStop);
     </script>
   </body>
 </html>
