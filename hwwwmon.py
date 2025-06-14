@@ -40,7 +40,7 @@ def collect_mon():
             m['fh'].seek(0)
             try:
                 val = int(m['fh'].read())
-                if mon_type == 'temp':
+                if mon_type == 'temp' or mon_type == 'in':
                     val = val / 1000
                 out[mon_type][m['name']] = val
             except OSError:
