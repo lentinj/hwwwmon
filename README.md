@@ -10,11 +10,18 @@ viewing the stats in a web browser.
 The script has no dependencies other than python3(*), download / clone the repository, and run it:
 
 ```shell
-git clone https://github.com/lentinj/hwwwmon
+git clone https://github.com/lentinj/hwwwmon /usr/local/hwwwmon
 ./hwwwmon/hwwwmon.py
 ```
 
 (*) [Chart.js](https://www.chartjs.org/) is used for charting, fetched from cdnjs.cloudflare.com.
+
+There is also a systemd service file you can add:
+
+```shell
+# cp /usr/local/hwwwmon/hwwwmon.service /etc/systemd/system/hwwwmon.service
+# systemctl enable hwwwmon.service
+```
 
 ## Limitations
 
