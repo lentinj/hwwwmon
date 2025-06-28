@@ -131,6 +131,10 @@ PAGE_HTML = Template("""
 body {
     font-family: sans;
 }
+form {
+    display: flex;
+    grid-gap: 10px;
+}
 section {
     margin: 1rem auto;
     /* https://www.chartjs.org/docs/latest/configuration/responsive.html#important-note */
@@ -151,8 +155,8 @@ section {
       <button onclick="monPause()">⏸️</button>
       <button onclick="monStart()">▶️</button>
       <button onclick="monStop()">⏹️</button>
-      <label>Update every <input type="number" id="update-rate" value="300" onchange="monStop();monStart()" />ms</label>
-      <label>Show <input type="number" id="max-points" value="200" min="1" />data points</label>
+      <label>Update every <input type="number" id="update-rate" value="300" onchange="monStop();monStart()" style="width:3rem" /> ms</label>
+      <label>Show <input type="number" id="max-points" value="200" min="1" style="width:3rem" /> data points</label>
     </form>
     <div id="chart-container"></div>
     <script>
