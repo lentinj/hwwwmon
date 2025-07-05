@@ -97,7 +97,7 @@ class HwmRequestHandler(http.server.SimpleHTTPRequestHandler):
                 self.wfile.write(json.dumps(collect_mon()).encode("utf8"))
                 self.wfile.write(b"\n\n")
                 self.wfile.flush()
-            except BrokenPipeError:
+            except (BrokenPipeError, OSError):
                 return
             time.sleep(update_rate)
 
