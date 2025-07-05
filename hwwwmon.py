@@ -21,10 +21,12 @@ def init_mon():
 
     for mon_path in sorted(glob.glob("/sys/class/hwmon/*/*_input")):
         mon_type = re.sub(r'\d.*', '', os.path.basename(mon_path))
-        mon_name = " ".join((
-            slurp(os.path.join(os.path.dirname(mon_path), "name")),
+        mon_dirpath = os.path.dirname(mon_path)
+        mon_name = "%s:%s %s" % (
+            re.sub(r'hwmon', '', os.path.basename(mon_dirpath)),
+            slurp(os.path.join(mon_dirpath, "name")),
             slurp(re.sub(r'_input$', '_label', mon_path), ifnotexist=re.sub(r'_input$', '', os.path.basename(mon_path))),
-        ))
+        )
 
         if mon_type not in mons:
             mons[mon_type] = dict()
