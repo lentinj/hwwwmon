@@ -19,8 +19,11 @@ def init_mon():
         with open(path, "r") as f:
             return f.read().strip()
 
+    # https://www.kernel.org/doc/html/latest/hwmon/sysfs-interface.html
     for mon_path in sorted(glob.glob("/sys/class/hwmon/*/*_input")):
         mon_type = re.sub(r'\d.*', '', os.path.basename(mon_path))
+        if mon_type == "in":
+            mon_type = "voltage"
         mon_dirpath = os.path.dirname(mon_path)
         mon_name = "%s:%s %s" % (
             re.sub(r'hwmon', '', os.path.basename(mon_dirpath)),
@@ -43,7 +46,7 @@ def collect_mon():
             m['fh'].seek(0)
             try:
                 val = int(m['fh'].read())
-                if mon_type == 'temp' or mon_type == 'in':
+                if mon_type == "temp" or mon_type == "voltage":
                     val = val / 1000
                 out[mon_type][m['name']] = val
             except OSError:
