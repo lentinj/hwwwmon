@@ -136,7 +136,8 @@ def main():
     )
     args = parser.parse_args()
 
-    print(f"Listening on {args.listen}:{args.port}")
+    listen_ip = socket.gethostbyname(socket.gethostname()) if args.listen == '0.0.0.0' else args.listen
+    print(f"Listening on http://{listen_ip}:{args.port}")
     httpd = http.server.HTTPServer((args.listen, args.port), HwmRequestHandler)
     httpd.serve_forever()
 
