@@ -10,48 +10,56 @@ from string import Template
 import time
 import urllib.parse
 
-mons = dict()
 
-def init_mon():
-    def slurp(path, ifnotexist=""):
-        if not os.path.exists(path):
-            return ifnotexist
-        with open(path, "r") as f:
-            return f.read().strip()
+class Mons:
+    def __init__(self):
+        self.mons = dict()
 
-    # https://www.kernel.org/doc/html/latest/hwmon/sysfs-interface.html
-    for mon_path in sorted(glob.glob("/sys/class/hwmon/*/*_input")):
-        mon_type = re.sub(r'\d.*', '', os.path.basename(mon_path))
-        if mon_type == "in":
-            mon_type = "voltage"
-        mon_dirpath = os.path.dirname(mon_path)
-        mon_name = "%s:%s %s" % (
-            re.sub(r'hwmon', '', os.path.basename(mon_dirpath)),
-            slurp(os.path.join(mon_dirpath, "name")),
-            slurp(re.sub(r'_input$', '_label', mon_path), ifnotexist=re.sub(r'_input$', '', os.path.basename(mon_path))),
-        )
+        def slurp(path, ifnotexist=""):
+            if not os.path.exists(path):
+                return ifnotexist
+            with open(path, "r") as f:
+                return f.read().strip()
 
-        if mon_type not in mons:
-            mons[mon_type] = dict()
-        mons[mon_type][mon_path] = dict(
-            name=mon_name,
-            fh=open(mon_path, 'r'),
-        )
+        # https://www.kernel.org/doc/html/latest/hwmon/sysfs-interface.html
+        for mon_path in sorted(glob.glob("/sys/class/hwmon/*/*_input")):
+            mon_type = re.sub(r'\d.*', '', os.path.basename(mon_path))
+            if mon_type == "in":
+                mon_type = "voltage"
+            mon_dirpath = os.path.dirname(mon_path)
+            mon_name = "%s:%s %s" % (
+                re.sub(r'hwmon', '', os.path.basename(mon_dirpath)),
+                slurp(os.path.join(mon_dirpath, "name")),
+                slurp(re.sub(r'_input$', '_label', mon_path), ifnotexist=re.sub(r'_input$', '', os.path.basename(mon_path))),
+            )
 
-def collect_mon():
-    out = dict(_errors=[])
-    for mon_type in mons.keys():
-        out[mon_type] = dict()
-        for mon_path, m in mons[mon_type].items():
-            m['fh'].seek(0)
-            try:
-                val = int(m['fh'].read())
-                if mon_type == "temp" or mon_type == "voltage":
-                    val = val / 1000
-                out[mon_type][m['name']] = val
-            except OSError:
-                out['_errors'].append("Failed to read %s" % mon_path)
-    return out
+            if mon_type not in self.mons:
+                self.mons[mon_type] = dict()
+            self.mons[mon_type][mon_path] = dict(
+                name=mon_name,
+                fh=open(mon_path, 'r'),
+            )
+
+    def collect(self):
+        out = dict(_errors=[])
+        for mon_type in self.mons.keys():
+            out[mon_type] = dict()
+            for mon_path, m in self.mons[mon_type].items():
+                m['fh'].seek(0)
+                try:
+                    val = int(m['fh'].read())
+                    if mon_type == "temp" or mon_type == "voltage":
+                        val = val / 1000
+                    out[mon_type][m['name']] = val
+                except OSError:
+                    out['_errors'].append("Failed to read %s" % mon_path)
+        return out
+
+    def close(self):
+        for mon_type in self.mons.keys():
+            for mon_path, m in self.mons[mon_type].items():
+                m['fh'].close()
+        self.mons = dict()
 
 class HwmRequestHandler(http.server.SimpleHTTPRequestHandler):
     # https://docs.python.org/3/library/http.server.html#http.server.BaseHTTPRequestHandler
@@ -82,7 +90,11 @@ class HwmRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-type", "application/json")
         self.end_headers()
-        self.wfile.write(json.dumps(collect_mon()).encode("utf8"))
+        mons = Mons()
+        try:
+            self.wfile.write(json.dumps(mons.collect()).encode("utf8"))
+        finally:
+            mons.close()
 
     def do_mon_sse(self, qs):
         # https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events
@@ -94,15 +106,19 @@ class HwmRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header("Content-Type", "text/event-stream");
         self.send_header("Cache-Control", "no-cache");
         self.end_headers()
-        while True:
-            try:
-                self.wfile.write(b"data: ")
-                self.wfile.write(json.dumps(collect_mon()).encode("utf8"))
-                self.wfile.write(b"\n\n")
-                self.wfile.flush()
-            except (BrokenPipeError, OSError):
-                return
-            time.sleep(update_rate)
+        mons = Mons()
+        try:
+            while True:
+                try:
+                    self.wfile.write(b"data: ")
+                    self.wfile.write(json.dumps(mons.collect()).encode("utf8"))
+                    self.wfile.write(b"\n\n")
+                    self.wfile.flush()
+                except (BrokenPipeError, OSError):
+                    return
+                time.sleep(update_rate)
+        finally:
+            mons.close()
 
 def main():
     parser = argparse.ArgumentParser(description='Start hwwwmon')
@@ -120,7 +136,6 @@ def main():
     )
     args = parser.parse_args()
 
-    init_mon()
     print(f"Listening on {args.listen}:{args.port}")
     httpd = http.server.HTTPServer((args.listen, args.port), HwmRequestHandler)
     httpd.serve_forever()
