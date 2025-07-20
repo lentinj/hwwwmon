@@ -207,7 +207,7 @@ function updateCharts(mon_data, updateCharts, maxPoints) {
             if (!mon_charts[mon_type]) {
                 mon_charts[mon_type] = new Chart(document.querySelector(`#chart-container canvas[data-mon_type=${mon_type}]`), {
                     type: 'line',
-                    data: { datasets: [] },
+                    data: { datasets: [], labels: Array(maxPoints).fill("") },
                     options: {
                         animation: false,
                         responsive: true,
@@ -237,7 +237,7 @@ function updateCharts(mon_data, updateCharts, maxPoints) {
                 for (i = 0; i < chart.data.datasets.length; i++) {
                     if (chart.data.datasets[i].label === mon_name) break;
                 }
-                if (i >= chart.data.datasets.length) chart.data.datasets.push({ label: mon_name, data: [] });
+                if (i >= chart.data.datasets.length) chart.data.datasets.push({ label: mon_name, data: Array(maxPoints).fill(NaN) });
                 chart.data.datasets[i].data.push(mon_data[mon_type][mon_name]);
                 while (chart.data.datasets[i].data.length > maxPoints) chart.data.datasets[i].data.shift();
             });
