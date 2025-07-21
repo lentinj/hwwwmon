@@ -14,6 +14,7 @@ import urllib.parse
 class Mons:
     def __init__(self):
         self.mons = dict()
+        self.type_titles = dict()
 
         def slurp(path, ifnotexist=""):
             if not os.path.exists(path):
@@ -21,11 +22,8 @@ class Mons:
             with open(path, "r") as f:
                 return f.read().strip()
 
-        # https://www.kernel.org/doc/html/latest/hwmon/sysfs-interface.html
         for mon_path in sorted(glob.glob("/sys/class/hwmon/*/*_input")):
             mon_type = re.sub(r'\d.*', '', os.path.basename(mon_path))
-            if mon_type == "in":
-                mon_type = "voltage"
             mon_dirpath = os.path.dirname(mon_path)
             mon_name = "%s:%s %s" % (
                 re.sub(r'hwmon', '', os.path.basename(mon_dirpath)),
@@ -33,24 +31,44 @@ class Mons:
                 slurp(re.sub(r'_input$', '_label', mon_path), ifnotexist=re.sub(r'_input$', '', os.path.basename(mon_path))),
             )
 
+            # https://www.kernel.org/doc/html/latest/hwmon/sysfs-interface.html
+            # https://www.kernel.org/doc/html/latest/admin-guide/abi-testing-files.html#abi-file-testing-sysfs-class-hwmon
+            mon_scale, mon_offset = 1, 0
+            if mon_type == "in":  # 
+                self.type_titles[mon_type] = "Voltage (V)"
+                mon_scale = 0.001
+            elif mon_type == "fan":
+                self.type_titles[mon_type] = "Fan speed (RPM)"
+            elif mon_type == "temp":
+                self.type_titles[mon_type] = "Temperature (°C)"
+                mon_scale = 0.001
+            elif mon_type == "curr":
+                self.type_titles[mon_type] = "Current (A)"
+                mon_scale = 0.001
+            elif mon_type == "power":
+                self.type_titles[mon_type] = "Power (W)"
+                mon_scale = 0.000001
+            elif mon_type == "energy":
+                self.type_titles[mon_type] = "Energy (J)"
+                mon_scale = 0.000001
+
             if mon_type not in self.mons:
                 self.mons[mon_type] = dict()
             self.mons[mon_type][mon_path] = dict(
                 name=mon_name,
                 fh=open(mon_path, 'r'),
+                scale=mon_scale,
+                offset=mon_offset,
             )
 
     def collect(self):
-        out = dict(_errors=[])
+        out = dict(_errors=[], _titles=self.type_titles)
         for mon_type in self.mons.keys():
             out[mon_type] = dict()
             for mon_path, m in self.mons[mon_type].items():
                 m['fh'].seek(0)
                 try:
-                    val = int(m['fh'].read())
-                    if mon_type == "temp" or mon_type == "voltage":
-                        val = val / 1000
-                    out[mon_type][m['name']] = val
+                    out[mon_type][m['name']] = int(m['fh'].read()) * m['scale'] + m['offset']
                 except OSError:
                     out['_errors'].append("Failed to read %s" % mon_path)
         return out
@@ -192,6 +210,7 @@ function updateCharts(mon_data, updateCharts, maxPoints) {
                 // TODO: console.warn(mon_data["_errors"]);
                 return;
             }
+            if (mon_type === "_titles") return;
             if (!mon_charts[mon_type]) {
                 document.getElementById("chart-container").insertAdjacentHTML('beforeend', `<section>
                     <canvas data-mon_type="${mon_type}"></canvas>
@@ -203,7 +222,7 @@ function updateCharts(mon_data, updateCharts, maxPoints) {
 
         // Now DOM is updated, create charts
         Object.keys(mon_data).forEach((mon_type) => {
-            if (mon_type === "_errors") return;
+            if (mon_type === "_errors" || mon_type === "_titles") return;
             if (!mon_charts[mon_type]) {
                 mon_charts[mon_type] = new Chart(document.querySelector(`#chart-container canvas[data-mon_type=${mon_type}]`), {
                     type: 'line',
@@ -223,7 +242,7 @@ function updateCharts(mon_data, updateCharts, maxPoints) {
                         plugins: {
                             title: {  // https://www.chartjs.org/docs/latest/configuration/title.html#title
                                 display: true,
-                                text: mon_type,
+                                text: mon_data['_titles'][mon_type],
                             },
                         },
                     },
@@ -233,6 +252,7 @@ function updateCharts(mon_data, updateCharts, maxPoints) {
             chart.data.labels.push(timeStr);
             while (chart.data.labels.length > maxPoints) chart.data.labels.shift();
             Object.keys(mon_data[mon_type]).forEach((mon_name) => {
+                if (mon_name === "_title") return;
                 let i = 0
                 for (i = 0; i < chart.data.datasets.length; i++) {
                     if (chart.data.datasets[i].label === mon_name) break;
