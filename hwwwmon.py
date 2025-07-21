@@ -51,6 +51,11 @@ class Mons:
             elif mon_type == "energy":
                 self.type_titles[mon_type] = "Energy (J)"
                 mon_scale = 0.000001
+            elif mon_type == "freq":
+                self.type_titles[mon_type] = "Frequency (MHz)"
+                mon_scale = 0.000001
+            else:
+                self.type_titles[mon_type] = mon_type
 
             if mon_type not in self.mons:
                 self.mons[mon_type] = dict()
