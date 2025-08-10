@@ -161,7 +161,7 @@ def main():
 
     listen_ip = socket.gethostbyname(socket.gethostname()) if args.listen == '0.0.0.0' else args.listen
     print(f"Listening on http://{listen_ip}:{args.port}")
-    httpd = http.server.HTTPServer((args.listen, args.port), HwmRequestHandler)
+    httpd = http.server.ThreadingHTTPServer((args.listen, args.port), HwmRequestHandler)
     httpd.serve_forever()
 
 PAGE_HTML = Template("""

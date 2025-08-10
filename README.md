@@ -22,8 +22,3 @@ There is also a systemd service file you can add:
 # cp /usr/local/hwwwmon/hwwwmon.service /etc/systemd/system/hwwwmon.service
 # systemctl enable hwwwmon.service
 ```
-
-## Limitations
-
-The web-server only supports one active connection at a time.
-If you want to connect from elsewhere, close the old browser tab or press stop.
